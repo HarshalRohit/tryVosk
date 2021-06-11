@@ -23,7 +23,7 @@ import {
   PermissionsAndroid,
 } from 'react-native';
 
-import {Colors} from 'react-native/Libraries/NewAppScreen';
+import {wordErrorRate, calculateEditDistance} from 'word-error-rate';
 
 import VoskInterface from './VoskModule';
 
@@ -67,33 +67,103 @@ const requestReadExternalPermission = async (setLogs: Function) => {
 };
 
 const App = () => {
+  const separatorText = '-----------------------------------------------------';
+  const phrases = [
+    'zoom out',
+    'zoom in',
+    'exposure level minus one',
+    'continue',
+    'rename selected tasks',
+    'start',
+    'previous page',
+    'start camera',
+    'page down',
+    'rotate image',
+    'magnify off',
+    'manage license',
+    'unfreeze page',
+    'scroll to cursor',
+    'stop recording',
+    'zoom level five',
+    'document control',
+    'edit workflow',
+    'decrease width',
+    'show selected tage views',
+    'move down',
+  ];
   const [logs, _setLogs] = useState('');
-
+  const [phraseIdx, setPhraseIdx] = useState(-1);
+  const scrollViewRef = useRef<ScrollView>();
   const logsRef = useRef(logs);
+  const preds = useRef<string[]>([]);
+
+  const increment = () => {
+    setPhraseIdx(phraseIdx + 1);
+  };
 
   const getLogTime = () => new Date().toLocaleTimeString();
 
-  const setLogs = (data: string) => {
-    logsRef.current = `${logsRef.current}\n${getLogTime()}: ${data}`;
+  const setLogs = (data: string, addNewLine = true) => {
+    if (addNewLine) {
+      logsRef.current = `${logsRef.current}\n${getLogTime()}: ${data}`;
+    } else {
+      logsRef.current = `${logsRef.current}${data}`;
+    }
+
     _setLogs(`${logsRef.current}`);
   };
-  
-  const init = async () => {
-    try {
-      await requestReadExternalPermission(setLogs);
-      await requestMicrophonePermission(setLogs);
 
-      await VoskInterface.initialize();
-    } catch (error) {
-      console.error(error);
-      // setLogs(error);
+  const calculateWER = () => {
+    if (preds.current.length !== phrases.length) {
+      const mismatchLenErrTxt = `Mismatch in predicted phrases (${preds.current.length}) and true phrases (${phrases.length})\nPlease Restart App.`;
+
+      setLogs(mismatchLenErrTxt);
+
+      console.error(mismatchLenErrTxt);
     }
+    let wer = 0;
+    for (let idx = 0; idx < phrases.length; idx++) {
+      // EditDistance is between words and not character
+      wer += calculateEditDistance(preds.current[idx][0], phrases[idx]);
+    }
+
+    wer /= phrases.length;
+
+    setLogs(`${separatorText}WER: ${wer}`);
+  };
+
+  const changePhrase = () => {
+    setPhraseIdx(phraseIdx + 1);
+    if (phraseIdx + 1 >= phrases.length) {
+      setLogs('Done transcribing all phrases');
+      setLogs(preds.current.join('\n'));
+      setLogs('Calculating WER...');
+      calculateWER();
+      return;
+    }
+    const nextPhrase = phrases[phraseIdx + 1];
+    setLogs(`Speak: ${nextPhrase}`);
   };
 
   useEffect(() => {
+    const init = async () => {
+      try {
+        await requestReadExternalPermission(setLogs);
+        await requestMicrophonePermission(setLogs);
+
+        await VoskInterface.initialize();
+        changePhrase();
+        increment();
+      } catch (error) {
+        console.error(error);
+        // setLogs(error);
+      }
+    };
     init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Native Event handlers
   useEffect(() => {
     const eventEmitter = new NativeEventEmitter(NativeModules.VoskModule);
 
@@ -103,11 +173,12 @@ const App = () => {
 
     eventEmitter.addListener('onSpeechError', event => {
       // error message is in 'message' key
-      setLogs(event['message']);
+      setLogs(event.message);
     });
 
     eventEmitter.addListener('onSpeechFinalResults', event => {
-      setLogs(event['value']);
+      setLogs(`${event.value}\n${separatorText}`);
+      preds.current = [...preds.current, event.value];
     });
 
     //  eventEmitter.addListener("onSpeechPartialResults", (event) => {
@@ -118,40 +189,44 @@ const App = () => {
     eventEmitter.addListener('onSpeechEnd', event => {
       // console.log('onSpeechEnd');
       // console.log(event);
-      setLogs("Recording ended.")
+      // setLogs("Recording ended.")
     });
 
     eventEmitter.addListener('onSpeechStart', event => {
       // console.log('onSpeechStart');
       // console.log(event);
-      setLogs("Recording started.")
+      setLogs('Recording...');
     });
+
+    eventEmitter.addListener('onSpeechStop', event => {
+      // console.log('onSpeechStart');
+      // console.log(event);
+      setLogs('.stopped', false);
+    });
+
+    // eventEmitter.addListener("TranscribeFile", event => {
+    //   console.log(JSON.stringify(event))
+    // })
   }, []);
 
-  const isDarkMode = useColorScheme() === 'dark';
-
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
-  };
+  
 
   return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+    <SafeAreaView>
+      <StatusBar />
       <View style={styles.container}>
         <View style={[styles.sectionContainer, {borderWidth: 1, flex: 3}]}>
-          <ScrollView contentInsetAdjustmentBehavior="automatic">
+          <ScrollView
+            contentInsetAdjustmentBehavior="automatic"
+            ref={scrollViewRef}
+            onContentSizeChange={(contentWidth, contentHeight) => {
+              scrollViewRef.current?.scrollToEnd({animated: true});
+            }}>
             <Text>{logs}</Text>
           </ScrollView>
         </View>
 
         <View style={styles.sectionContainer}>
-          {/* <View style={styles.btnContainer}>
-            <Button
-              title="Request Permissions"
-              color="#841584"
-              onPress={requestPermissions}
-            />
-          </View> */}
           <View style={styles.btnContainer}>
             <Button
               title="Start Recording"
@@ -164,6 +239,15 @@ const App = () => {
               title="Stop Recording"
               color="#451584"
               onPress={() => VoskInterface.stopListening()}
+            />
+          </View>
+
+          <View style={styles.btnContainer}>
+            <Button
+              title="Next Phrase"
+              color="#451584"
+              onPress={() => changePhrase()}
+              disabled={phraseIdx >= phrases.length}
             />
           </View>
         </View>
@@ -193,22 +277,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     margin: 5,
   },
-  // sectionContainer: {
-  //   marginTop: 32,
-  //   paddingHorizontal: 24,
-  // },
-  // sectionTitle: {
-  //   fontSize: 24,
-  //   fontWeight: '600',
-  // },
-  // sectionDescription: {
-  //   marginTop: 8,
-  //   fontSize: 18,
-  //   fontWeight: '400',
-  // },
-  // highlight: {
-  //   fontWeight: '700',
-  // },
 });
 
 export default App;
