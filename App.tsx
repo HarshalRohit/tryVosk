@@ -95,7 +95,7 @@ const App = () => {
   const [phraseIdx, setPhraseIdx] = useState(-1);
   const scrollViewRef = useRef<ScrollView>();
   const logsRef = useRef(logs);
-  const preds = useRef<string[]>([]);
+  const preds = useRef([]);
 
   const increment = () => {
     setPhraseIdx(phraseIdx + 1);
@@ -178,7 +178,7 @@ const App = () => {
 
     eventEmitter.addListener('onSpeechFinalResults', event => {
       setLogs(`${event.value}\n${separatorText}`);
-      preds.current = [...preds.current, event.value];
+      preds.current.push(event.value[0]);
     });
 
     //  eventEmitter.addListener("onSpeechPartialResults", (event) => {
