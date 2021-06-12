@@ -90,9 +90,7 @@ const calculateWER = (
 
   wer /= expectedLen;
 
-  // TODO: use upper scope defined var
-  const separatorText = '-----------------------------------------------------';
-  setLogs(`${separatorText}\nWER: ${wer}`);
+  setLogs(`WER: ${wer}`);
 };
 
 const App = () => {
@@ -166,7 +164,9 @@ const App = () => {
     setPhraseIdx(phraseIdx + 1);
     if (phraseIdx + 1 >= phrases.length) {
       setLogs('Done transcribing all phrases');
-      setLogs(preds.current.join('\n'));
+      setLogs(
+        `Predicted Phrases\n${preds.current.join('\n')}\n${separatorText}`,
+      );
       setLogs('Calculating WER...');
       calculateWER(preds.current, phrases, setLogs);
       return;
@@ -249,10 +249,10 @@ const App = () => {
           <ScrollView
             contentInsetAdjustmentBehavior="automatic"
             ref={scrollViewRef}
-            onContentSizeChange={(contentWidth, contentHeight) => {
+            onContentSizeChange={(_contentWidth, _contentHeight) => {
               scrollViewRef.current?.scrollToEnd({animated: true});
             }}>
-            <Text>{logs}</Text>
+            <Text selectable>{logs}</Text>
           </ScrollView>
         </View>
 
