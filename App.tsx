@@ -95,7 +95,7 @@ const calculateWER = (
 
 const App = () => {
   const separatorText = '-----------------------------------------------------';
-  const phrases = [
+const phrases = [
     'zoom out',
     'zoom in',
     'exposure level minus one',
@@ -118,6 +118,9 @@ const App = () => {
     'show selected tage views',
     'move down',
   ];
+
+const App = () => {
+  const separatorText = '-----------------------------------------------------';
   const [logs, _setLogs] = useState('');
   const [phraseIdx, setPhraseIdx] = useState(-1);
 
@@ -141,26 +144,7 @@ const App = () => {
     _setLogs(`${logsRef.current}`);
   };
 
-  const calculateWER = () => {
-    if (preds.current.length !== phrases.length) {
-      const mismatchLenErrTxt = `Mismatch in predicted phrases (${preds.current.length}) and true phrases (${phrases.length})\nPlease Restart App.`;
-
-      setLogs(mismatchLenErrTxt);
-
-      console.error(mismatchLenErrTxt);
-    }
-    let wer = 0;
-    for (let idx = 0; idx < phrases.length; idx++) {
-      // EditDistance is between words and not character
-      wer += calculateEditDistance(preds.current[idx][0], phrases[idx]);
-    }
-
-    wer /= phrases.length;
-
-    setLogs(`${separatorText}WER: ${wer}`);
-  };
-
-  const changePhrase = () => {
+  const changePhrase = useCallback(() => {
     setPhraseIdx(phraseIdx + 1);
     if (phraseIdx + 1 >= phrases.length) {
       setLogs('Done transcribing all phrases');
@@ -173,7 +157,7 @@ const App = () => {
     }
     const nextPhrase = phrases[phraseIdx + 1];
     setLogs(`Speak: ${nextPhrase}`);
-  };
+  }, [phraseIdx]);
 
   useEffect(() => {
     const init = async () => {
@@ -197,19 +181,29 @@ const App = () => {
   useEffect(() => {
     const eventEmitter = new NativeEventEmitter(NativeModules.VoskModule);
 
-    eventEmitter.addListener('onSpeechReady', event => {
-      setLogs('Ready to Record.');
-    });
+    const speechReadySubscription = eventEmitter.addListener(
+      'onSpeechReady',
+      () => {
+        setLogs('Ready to Record.');
+      },
+    );
 
-    eventEmitter.addListener('onSpeechError', event => {
-      // error message is in 'message' key
-      setLogs(event.message);
-    });
+    const speechErrorSubscription = eventEmitter.addListener(
+      'onSpeechError',
+      event => {
+        // error message is in 'message' key
+        setLogs(event.message);
+      },
+    );
 
-    eventEmitter.addListener('onSpeechFinalResults', event => {
-      setLogs(`${event.value}\n${separatorText}`);
-      preds.current.push(event.value[0]);
-    });
+    const speechFinalResultSubscription = eventEmitter.addListener(
+      'onSpeechFinalResults',
+      event => {
+        setLogs(`${event.value}\n${separatorText}`);
+        preds.current.push(event.value[0]);
+        changePhrase();
+      },
+    );
 
     //  eventEmitter.addListener("onSpeechPartialResults", (event) => {
     //   console.log("onSpeechPartialResults");
@@ -222,24 +216,36 @@ const App = () => {
       // setLogs("Recording ended.")
     });
 
-    eventEmitter.addListener('onSpeechStart', event => {
-      // console.log('onSpeechStart');
-      // console.log(event);
-      setLogs('Recording...');
-    });
+    const speechStartSubscription = eventEmitter.addListener(
+      'onSpeechStart',
+      () => {
+        // console.log('onSpeechStart');
+        // console.log(event);
+        setLogs('Recording...');
+      },
+    );
 
-    eventEmitter.addListener('onSpeechStop', event => {
-      // console.log('onSpeechStart');
-      // console.log(event);
-      setLogs('.stopped', false);
-    });
+    const speechStopSubscription = eventEmitter.addListener(
+      'onSpeechStop',
+      () => {
+        // console.log('onSpeechStart');
+        // console.log(event);
+        setLogs('.stopped', false);
+      },
+    );
 
     // eventEmitter.addListener("TranscribeFile", event => {
     //   console.log(JSON.stringify(event))
     // })
-  }, []);
-
-  
+    return () => {
+      // eventEmitter.removeAllListeners('onSpeechStop');
+      speechReadySubscription.remove();
+      speechErrorSubscription.remove();
+      speechFinalResultSubscription.remove();
+      speechStopSubscription.remove();
+      speechStartSubscription.remove();
+    };
+  }, [changePhrase]);
 
   return (
     <SafeAreaView>
