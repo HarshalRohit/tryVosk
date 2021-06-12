@@ -23,7 +23,7 @@ import {
   PermissionsAndroid,
 } from 'react-native';
 
-import {wordErrorRate, calculateEditDistance} from 'word-error-rate';
+import {calculateEditDistance} from 'word-error-rate';
 
 import VoskInterface from './VoskModule';
 
@@ -66,6 +66,35 @@ const requestReadExternalPermission = async (setLogs: Function) => {
   }
 };
 
+const getLogTime = () => new Date().toLocaleTimeString();
+
+const calculateWER = (
+  predicted: string[],
+  expected: string[],
+  setLogs: Function,
+) => {
+  const predictedLen = predicted.length;
+  const expectedLen = expected.length;
+  if (predictedLen !== expectedLen) {
+    const mismatchLenErrTxt = `Mismatch in predicted phrases (${predictedLen}) and true phrases (${expected})\nPlease Restart App.`;
+
+    setLogs(mismatchLenErrTxt);
+
+    console.error(mismatchLenErrTxt);
+  }
+  let wer = 0;
+  for (let idx = 0; idx < expectedLen; idx++) {
+    // EditDistance is between words and not character
+    wer += calculateEditDistance(predicted[idx], expected[idx]);
+  }
+
+  wer /= expectedLen;
+
+  // TODO: use upper scope defined var
+  const separatorText = '-----------------------------------------------------';
+  setLogs(`${separatorText}\nWER: ${wer}`);
+};
+
 const App = () => {
   const separatorText = '-----------------------------------------------------';
   const phrases = [
@@ -93,9 +122,10 @@ const App = () => {
   ];
   const [logs, _setLogs] = useState('');
   const [phraseIdx, setPhraseIdx] = useState(-1);
+
   const scrollViewRef = useRef<ScrollView>();
   const logsRef = useRef(logs);
-  const preds = useRef([]);
+  const preds = useRef<string[]>([]);
 
   const increment = () => {
     setPhraseIdx(phraseIdx + 1);
@@ -138,7 +168,7 @@ const App = () => {
       setLogs('Done transcribing all phrases');
       setLogs(preds.current.join('\n'));
       setLogs('Calculating WER...');
-      calculateWER();
+      calculateWER(preds.current, phrases, setLogs);
       return;
     }
     const nextPhrase = phrases[phraseIdx + 1];
