@@ -12,6 +12,7 @@
   "dependencies": {
     "react": "17.0.1",
     "react-native": "0.64.1",
+    "string-similarity": "^4.0.4",
     "word-error-rate": "0.0.7"
   },
   "devDependencies": {
@@ -21,6 +22,7 @@
     "@types/jest": "^26.0.23",
     "@types/react-native": "^0.64.5",
     "@types/react-test-renderer": "^16.9.2",
+    "@types/string-similarity": "^4.0.0",
     "babel-jest": "^26.6.3",
     "eslint": "^7.14.0",
     "jest": "^26.6.3",

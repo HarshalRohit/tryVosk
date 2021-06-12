@@ -15,7 +15,6 @@ import {
   StatusBar,
   StyleSheet,
   Text,
-  useColorScheme,
   View,
   NativeModules,
   Button,
@@ -24,6 +23,8 @@ import {
 } from 'react-native';
 
 import {calculateEditDistance} from 'word-error-rate';
+import {findBestMatch} from 'string-similarity';
+// import stringSimilarity from  'string-similarity';
 
 import VoskInterface from './VoskModule';
 
@@ -76,7 +77,7 @@ const calculateWER = (
   const predictedLen = predicted.length;
   const expectedLen = expected.length;
   if (predictedLen !== expectedLen) {
-    const mismatchLenErrTxt = `Mismatch in predicted phrases (${predictedLen}) and true phrases (${expected})\nPlease Restart App.`;
+    const mismatchLenErrTxt = `Mismatch in predicted phrases (${predictedLen}) and true phrases (${expectedLen})\nPlease Restart App.`;
 
     setLogs(mismatchLenErrTxt);
 
@@ -90,34 +91,33 @@ const calculateWER = (
 
   wer /= expectedLen;
 
-  setLogs(`WER: ${wer}`);
+  // setLogs(`WER: ${wer}`);
+  return wer;
 };
 
-const App = () => {
-  const separatorText = '-----------------------------------------------------';
 const phrases = [
-    'zoom out',
-    'zoom in',
-    'exposure level minus one',
-    'continue',
-    'rename selected tasks',
-    'start',
-    'previous page',
-    'start camera',
-    'page down',
-    'rotate image',
-    'magnify off',
-    'manage license',
-    'unfreeze page',
-    'scroll to cursor',
-    'stop recording',
-    'zoom level five',
-    'document control',
-    'edit workflow',
-    'decrease width',
-    'show selected tage views',
-    'move down',
-  ];
+  // 'zoom out',
+  // 'zoom in',
+  // 'exposure level minus one',
+  // 'continue',
+  // 'rename selected tasks',
+  // 'start',
+  // 'previous page',
+  'start camera',
+  // 'page down',
+  // 'rotate image',
+  // 'magnify off',
+  // 'manage license',
+  // 'unfreeze page',
+  'scroll to cursor',
+  // 'stop recording',
+  // 'zoom level five',
+  // 'document control',
+  'edit workflow',
+  'decrease width',
+  // 'show selected tag views',
+  // 'move down',
+];
 
 const App = () => {
   const separatorText = '-----------------------------------------------------';
@@ -127,12 +127,11 @@ const App = () => {
   const scrollViewRef = useRef<ScrollView>();
   const logsRef = useRef(logs);
   const preds = useRef<string[]>([]);
+  const errorCorrectedPreds = useRef<string[]>([]);
 
   const increment = () => {
     setPhraseIdx(phraseIdx + 1);
   };
-
-  const getLogTime = () => new Date().toLocaleTimeString();
 
   const setLogs = (data: string, addNewLine = true) => {
     if (addNewLine) {
@@ -151,13 +150,33 @@ const App = () => {
       setLogs(
         `Predicted Phrases\n${preds.current.join('\n')}\n${separatorText}`,
       );
+      setLogs(
+        `Error Corrected Phrases\n${errorCorrectedPreds.current.join(
+          '\n',
+        )}\n${separatorText}`,
+      );
       setLogs('Calculating WER...');
-      calculateWER(preds.current, phrases, setLogs);
+      const predWer = calculateWER(preds.current, phrases, setLogs);
+      setLogs(`WER: ${predWer}`);
+
+      const correctedWER = calculateWER(
+        errorCorrectedPreds.current,
+        phrases,
+        setLogs,
+      );
+      setLogs(`WER: ${correctedWER}`);
       return;
     }
     const nextPhrase = phrases[phraseIdx + 1];
     setLogs(`Speak: ${nextPhrase}`);
   }, [phraseIdx]);
+
+  const doPhraseErrorCorrection = (predWord: string) => {
+    const res = findBestMatch(predWord, phrases);
+    const bestMatch = res.bestMatch.target;
+    setLogs(`Corrected: ${bestMatch}\n${separatorText}`);
+    errorCorrectedPreds.current.push(bestMatch);
+  };
 
   useEffect(() => {
     const init = async () => {
@@ -199,8 +218,9 @@ const App = () => {
     const speechFinalResultSubscription = eventEmitter.addListener(
       'onSpeechFinalResults',
       event => {
-        setLogs(`${event.value}\n${separatorText}`);
+        setLogs(`Predicted: ${event.value}`);
         preds.current.push(event.value[0]);
+        doPhraseErrorCorrection(event.value[0]);
         changePhrase();
       },
     );
@@ -278,14 +298,14 @@ const App = () => {
             />
           </View>
 
-          <View style={styles.btnContainer}>
+          {/* <View style={styles.btnContainer}>
             <Button
               title="Next Phrase"
               color="#451584"
               onPress={() => changePhrase()}
               disabled={phraseIdx >= phrases.length}
             />
-          </View>
+          </View> */}
         </View>
       </View>
     </SafeAreaView>
