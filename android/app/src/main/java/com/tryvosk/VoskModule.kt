@@ -54,8 +54,8 @@ class KaldiVOSKModule(private val reactContext: ReactApplicationContext) : React
     }
 
     private fun createModel(): Boolean {
-
         val modelsDir = File("${Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)}/vosk/models/vosk-model-small-en-in-0.4")
+//        val modelsDir = File("${reactContext.}/models/vosk-model-small-en-in-0.4")
 
         if (!modelsDir.exists()) {
             val event = Arguments.createMap()

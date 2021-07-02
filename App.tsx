@@ -22,7 +22,7 @@ import {
   PermissionsAndroid,
 } from 'react-native';
 
-import {calculateEditDistance} from 'word-error-rate';
+import {calculateEditDistance, wordErrorRate} from 'word-error-rate';
 import {findBestMatch} from 'string-similarity';
 // import stringSimilarity from  'string-similarity';
 
@@ -70,8 +70,8 @@ const requestReadExternalPermission = async (setLogs: Function) => {
 const getLogTime = () => new Date().toLocaleTimeString();
 
 const calculateWER = (
-  predicted: string[],
   expected: string[],
+  predicted: string[],
   setLogs: Function,
 ) => {
   const predictedLen = predicted.length;
@@ -86,7 +86,7 @@ const calculateWER = (
   let wer = 0;
   for (let idx = 0; idx < expectedLen; idx++) {
     // EditDistance is between words and not character
-    wer += calculateEditDistance(predicted[idx], expected[idx]);
+    wer += wordErrorRate(predicted[idx], expected[idx]);
   }
 
   wer /= expectedLen;
@@ -96,27 +96,27 @@ const calculateWER = (
 };
 
 const phrases = [
-  // 'zoom out',
-  // 'zoom in',
-  // 'exposure level minus one',
-  // 'continue',
-  // 'rename selected tasks',
-  // 'start',
-  // 'previous page',
+  'zoom out',
+  'zoom in',
+  'exposure level minus one',
+  'continue',
+  'rename selected tasks',
+  'start',
+  'previous page',
   'start camera',
-  // 'page down',
-  // 'rotate image',
-  // 'magnify off',
-  // 'manage license',
-  // 'unfreeze page',
+  'page down',
+  'rotate image',
+  'magnify off',
+  'manage license',
+  'unfreeze page',
   'scroll to cursor',
-  // 'stop recording',
-  // 'zoom level five',
-  // 'document control',
+  'stop recording',
+  'zoom level five',
+  'document control',
   'edit workflow',
   'decrease width',
-  // 'show selected tag views',
-  // 'move down',
+  'show selected tag views',
+  'move down',
 ];
 
 const App = () => {
@@ -164,7 +164,7 @@ const App = () => {
         phrases,
         setLogs,
       );
-      setLogs(`WER: ${correctedWER}`);
+      setLogs(`Corrected WER: ${correctedWER}`);
       return;
     }
     const nextPhrase = phrases[phraseIdx + 1];
